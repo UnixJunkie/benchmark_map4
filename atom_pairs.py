@@ -52,7 +52,6 @@ def dict_contains(d, k):
     except KeyError:
         return False
 
-# FBR: update feature_dict
 # counted atom pairs encoding
 def encode(mol, dico):
     dists = Chem.GetDistanceMatrix(mol)
@@ -64,9 +63,9 @@ def encode(mol, dico):
             type_atoms.append(t_a)
     # sort by atom types (canonicalization of pairs)
     type_atoms.sort(key=fst)
-    # count features
     n = len(type_atoms)
     feat2count = {}
+    # count AP features in mol    
     for i in range(n - 1):
         a_t, a = type_atoms[i]
         a_i = a.GetIdx()
@@ -77,12 +76,22 @@ def encode(mol, dico):
             feat = (a_t, dist, b_t)
             # python cannot create a dictionary w/ list keys!
             feat = str(feat)
+            # maintain global feature dictionary
+            if not dict_contains(dico, feat):
+                # reserve index 0 for unknown features
+                feat_idx = len(dico) + 1
+                dico[feat] = feat_idx
             if dict_contains(feat2count, feat):
                 prev_count = feat2count[feat]
                 feat2count[feat] = prev_count + 1
             else:
                 feat2count[feat] = 1
-    return feat2count
+    res = {}
+    # translate features to their integer code (index)
+    for feat, count in feat2count.items():
+        feat_idx = dico[feat]
+        res[feat_idx] = count
+    return res
 
 d={}
 encode(m, d)
