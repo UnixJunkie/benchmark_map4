@@ -6,6 +6,7 @@
 
 import pandas as pd
 from map4 import MAP4Calculator
+from atom_pairs import encode_molecules
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import DataStructs
@@ -27,7 +28,7 @@ def fp_as_array(mol):
     fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2)
     arr = np.zeros((1,), int)
     DataStructs.ConvertToNumpyArray(fp, arr)
-    return arr
+    return arr # FBR: numpy.ndarray of int64 w/ length 2048
 
 
 # Build a dataframe from a SMILES file.
@@ -45,6 +46,7 @@ def build_dataframe(input_file_name):
     df['mol'] = [Chem.MolFromSmiles(x) for x in df.SMILES]
     df['map4'] = [m4_calc.calculate(x) for x in df.mol]
     df['morgan'] = [fp_as_array(x) for x in df.mol]
+    df['ap'] = encode_molecules(df.mol, 2048)
     return df
 
 
@@ -58,9 +60,11 @@ def build_dataframe(input_file_name):
 # In[15]:
 
 
-def benchmark_dataset(df, name, cv_folds=10):
+# FBR: I lowered from 10xCV to 5xCV for faster bench
+def benchmark_dataset(df, name, cv_folds=5):
     map4_list = []
     morgan_list = []
+    ap_list = []
     for i in tnrange(cv_folds, desc=name):
         train, test = train_test_split(df)
         map4_xgb = XGBRegressor()
@@ -75,7 +79,13 @@ def benchmark_dataset(df, name, cv_folds=10):
         morgan_r2 = r2_score(test.IC50, morgan_pred)
         morgan_list.append(morgan_r2)
 
-    return np.array(map4_list), np.array(morgan_list)
+        ap_xgb = XGBRegressor()
+        ap_xgb.fit(np.array([x for x in train.ap.values]), train.IC50)
+        ap_pred = ap_xgb.predict(np.array([x for x in test.ap.values]))
+        ap_r2 = r2_score(test.IC50, ap_pred)
+        ap_list.append(ap_r2)
+
+    return (np.array(map4_list), np.array(morgan_list), np.array(ap_list))
 
 
 # Run the bechmark on a set of files.
@@ -88,9 +98,9 @@ def run_benchmarks(file_spec):
     for filename in glob(file_spec):
         df = build_dataframe(filename)
         name = filename.replace(".smi", "")
-        map4_res, morgan_res = benchmark_dataset(df, name)
-        for map4, morgan in zip(map4_res, morgan_res):
-            result_list.append([name, map4, morgan])
+        map4_res, morgan_res, ap_res = benchmark_dataset(df, name)
+        for map4, morgan, ap in zip(map4_res, morgan_res, ap_res):
+            result_list.append([name, map4, morgan, ap])
     return result_list
 
 
@@ -107,7 +117,7 @@ get_ipython().run_line_magic('time', 'result_list = run_benchmarks("*.smi")')
 # In[18]:
 
 
-result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan"])
+result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan", "ap"])
 result_df.to_csv("map4_morgan_comparison.csv", index=False)
 
 
