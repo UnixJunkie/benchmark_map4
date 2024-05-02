@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
-import typing
+import numpy as np
+import random
 import rdkit
 import sys
+import typing
+from typing import Dict
 from rdkit import Chem
 
 # counted atom pairs; maybe folded using a counted-bloom filter
@@ -96,7 +99,7 @@ def encode(mol, dico):
 
 # fold fp using a counting Bloom filter
 def counting_bloom_fold(fp, dest_size, k):
-    vect_shape = (1, dest_size)
+    vect_shape = (dest_size,)
     res = np.zeros(vect_shape, int)
     for feat, count in fp.items():
         # belt & shoulder straps
@@ -104,24 +107,15 @@ def counting_bloom_fold(fp, dest_size, k):
         random.seed(feat)
         for _i in range(k):
             key = random.randrange(dest_size)
-            prev_count = res[0][key]
-            res[0][key] = prev_count + count
+            res[key] = res[key] + count
     return res
 
 def inspect_vector(v):
-    _zero, dim = v.shape
-    for i in range(dim):
-        count = v[0][i]
+    n = len(v)
+    for i in range(n):
+        count = v[i]
         if count > 0:
             print('%d: %d' % (i, count), file=sys.stderr)
-
-# # tests
-# d={}
-# fp = encode(m, d)
-# fp
-# folded_fp = counting_bloom_fold(fp, 2048, 3)
-# folded_fp
-# inspect_vector(folded_fp)
 
 def encode_molecules(mols, dest_size):
     d = {}
@@ -133,3 +127,13 @@ def encode_molecules(mols, dest_size):
         res.append(folded)
     print('atom_pairs: %d features' % len(d), file=sys.stderr)
     return res
+
+# # tests
+# m = Chem.MolFromSmiles('Cn1c(=O)c2c(ncn2C)n(C)c1=O')
+# dico: Dict[str,int] = {}
+# fp = encode(m, dico)
+# fp
+# folded_fp = counting_bloom_fold(fp, 2048, 3)
+# folded_fp
+# inspect_vector(folded_fp)
+# encode_molecules([m, m], 2048)
