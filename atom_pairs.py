@@ -115,10 +115,21 @@ def inspect_vector(v):
         if count > 0:
             print('%d: %d' % (i, count), file=sys.stderr)
 
-# tests
-d={}
-fp = encode(m, d)
-fp
-folded_fp = counting_bloom_fold(fp, 2048, 3)
-folded_fp
-inspect_vector(folded_fp)
+# # tests
+# d={}
+# fp = encode(m, d)
+# fp
+# folded_fp = counting_bloom_fold(fp, 2048, 3)
+# folded_fp
+# inspect_vector(folded_fp)
+
+def encode_molecules(mols, dest_size):
+    d = {}
+    res = []
+    for mol in mols:
+        unfolded = encode(mol, d)
+        # this 3 is COMPLETELY arbitrary; could be 2; could be 5...
+        folded = counting_bloom_fold(unfolded, dest_size, 3)
+        res.append(folded)
+    print('atom_pairs: %d features' % len(d), file=sys.stderr)
+    return res
