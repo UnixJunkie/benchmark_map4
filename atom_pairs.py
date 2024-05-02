@@ -2,6 +2,7 @@
 
 import typing
 import rdkit
+import sys
 from rdkit import Chem
 
 # counted atom pairs; maybe folded using a counted-bloom filter
@@ -65,7 +66,7 @@ def encode(mol, dico):
     type_atoms.sort(key=fst)
     n = len(type_atoms)
     feat2count = {}
-    # count AP features in mol    
+    # count AP features in mol
     for i in range(n - 1):
         a_t, a = type_atoms[i]
         a_i = a.GetIdx()
@@ -93,5 +94,31 @@ def encode(mol, dico):
         res[feat_idx] = count
     return res
 
+# fold fp using a counting Bloom filter
+def counting_bloom_fold(fp, dest_size, k):
+    vect_shape = (1, dest_size)
+    res = np.zeros(vect_shape, int)
+    for feat, count in fp.items():
+        # belt & shoulder straps
+        assert(type(feat) == int and type(count) == int)
+        random.seed(feat)
+        for _i in range(k):
+            key = random.randrange(dest_size)
+            prev_count = res[0][key]
+            res[0][key] = prev_count + count
+    return res
+
+def inspect_vector(v):
+    _zero, dim = v.shape
+    for i in range(dim):
+        count = v[0][i]
+        if count > 0:
+            print('%d: %d' % (i, count), file=sys.stderr)
+
+# tests
 d={}
-encode(m, d)
+fp = encode(m, d)
+fp
+folded_fp = counting_bloom_fold(fp, 2048, 3)
+folded_fp
+inspect_vector(folded_fp)
