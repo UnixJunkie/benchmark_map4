@@ -46,9 +46,8 @@ def build_dataframe(input_file_name):
     df['mol'] = [Chem.MolFromSmiles(x) for x in df.SMILES]
     df['map4'] = [m4_calc.calculate(x) for x in df.mol]
     df['morgan'] = [fp_as_array(x) for x in df.mol]
-    # FBR: also try an unfolded version, since we can know in advance the dimensionality of the largest dataset
-    # AP: 14086 features on erbB1; highest dimensional dataset
-    # FBR: folded AP might benefit from a significantly larger size: also try 4096, 8192 and 16384    
+    # FBR: folded AP might benefit from a significantly larger size: also try 4096, 8192 and 16384
+    # for unfolded version: AP has 14086 features on erbB1; highest dimensional dataset
     df['ap'] = encode_molecules_unfolded(df.mol)
     return df
 
