@@ -6,7 +6,7 @@
 
 import pandas as pd
 from map4 import MAP4Calculator
-from atom_pairs import encode_molecules
+from atom_pairs import encode_molecules_folded, encode_molecules_unfolded
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import DataStructs
@@ -46,9 +46,11 @@ def build_dataframe(input_file_name):
     df['mol'] = [Chem.MolFromSmiles(x) for x in df.SMILES]
     df['map4'] = [m4_calc.calculate(x) for x in df.mol]
     df['morgan'] = [fp_as_array(x) for x in df.mol]
-    df['ap'] = encode_molecules(df.mol, 2048)
+    # FBR: also try an unfolded version, since we can know in advance the dimensionality of the largest dataset
+    # AP: 14086 features on erbB1; highest dimensional dataset
+    # FBR: folded AP might benefit from a significantly larger size: also try 4096, 8192 and 16384    
+    df['ap'] = encode_molecules_unfolded(df.mol)
     return df
-
 
 # Benchmark a dataset.
 # 1. Split into training and test sets using the sklearn defaults
@@ -109,8 +111,32 @@ def run_benchmarks(file_spec):
 # In[17]:
 
 
-get_ipython().run_line_magic('time', 'result_list = run_benchmarks("*.smi")')
-
+# get_ipython().run_line_magic('time', 'result_list = run_benchmarks("*.smi")')
+result_list = run_benchmarks("*.smi")
+# A2a.smi
+# ABL1.smi
+# Acetylcholinesterase.smi
+# Aurora-A.smi
+# B-raf.smi
+# COX-1.smi
+# COX-2.smi
+# Cannabinoid.smi
+# Carbonic.smi
+# Caspase.smi
+# Coagulation.smi
+# Dihydrofolate.smi
+# Dopamine.smi
+# Ephrin.smi
+# Estrogen.smi
+# Glucocorticoid.smi
+# Glycogen.smi
+# HERG.smi
+# JAK2.smi
+# LCK.smi
+# Monoamine.smi
+# Vanilloid.smi
+# erbB1.smi
+# opioid.smi
 
 # Put the results into a dataframe and write the dataframe to disk.
 
