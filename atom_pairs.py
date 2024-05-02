@@ -110,6 +110,14 @@ def counting_bloom_fold(fp, dest_size, k):
             res[key] = res[key] + count
     return res
 
+# if we don't want to fold the fp
+def to_dense(fp, dest_size):
+    vect_shape = (dest_size,)
+    res = np.zeros(vect_shape, int)
+    for feat, count in fp.items():
+        res[feat] = count
+    return res
+
 def inspect_vector(v):
     n = len(v)
     for i in range(n):
@@ -117,7 +125,7 @@ def inspect_vector(v):
         if count > 0:
             print('%d: %d' % (i, count), file=sys.stderr)
 
-def encode_molecules(mols, dest_size):
+def encode_molecules_folded(mols, dest_size):
     d = {}
     res = []
     for mol in mols:
@@ -125,6 +133,16 @@ def encode_molecules(mols, dest_size):
         # this 3 is COMPLETELY arbitrary; could be 2; could be 5...
         folded = counting_bloom_fold(unfolded, dest_size, 3)
         res.append(folded)
+    print('atom_pairs: %d features' % len(d), file=sys.stderr)
+    return res
+
+def encode_molecules_unfolded(mols, max_dim=14087):
+    d = {}
+    res = []
+    for mol in mols:
+        sparse = encode(mol, d)
+        unfolded = to_dense(sparse, max_dim)
+        res.append(unfolded)
     print('atom_pairs: %d features' % len(d), file=sys.stderr)
     return res
 
@@ -137,3 +155,28 @@ def encode_molecules(mols, dest_size):
 # folded_fp
 # inspect_vector(folded_fp)
 # encode_molecules([m, m], 2048)
+
+# atom_pairs: 4265 features Carbonic
+# atom_pairs: 4316 features A2a
+# atom_pairs: 5293 features Dihydrofolate
+# atom_pairs: 6092 features Cannabinoid
+# atom_pairs: 6277 features Vanilloid
+# atom_pairs: 6587 features Monoamine
+# atom_pairs: 6595 features Dopamine
+# atom_pairs: 7209 features Ephrin
+# atom_pairs: 7366 features ABL1
+# atom_pairs: 7426 features B-raf
+# atom_pairs: 8390 features COX-1
+# atom_pairs: 8589 features Caspase
+# atom_pairs: 9058 features JAK2
+# atom_pairs: 9453 features LCK
+# atom_pairs: 9529 features Aurora-A
+# atom_pairs: 9820 features opioid
+# atom_pairs: 9919 features Glycogen
+# atom_pairs: 10339 features COX-2
+# atom_pairs: 10792 features Estrogen
+# atom_pairs: 11840 features Coagulation
+# atom_pairs: 12084 features Glucocorticoid
+# atom_pairs: 12181 features Acetylcholinesterase
+# atom_pairs: 12481 features HERG
+# atom_pairs: 14086 features erbB1
