@@ -36,3 +36,53 @@ def type_atom_simple(a) -> list[int]:
     aro = ring_membership(a)
     heavies, hydrogens = count_neighbors(a)
     return [anum, fc, aro, heavies, hydrogens]
+
+def fst(a_b):
+    a, _b = a_b
+    return a
+
+def snd(a_b):
+    _a, b = a_b
+    return b
+
+def dict_contains(d, k):
+    try:
+        _v = d[k]
+        return True
+    except KeyError:
+        return False
+
+# FBR: update feature_dict
+# counted atom pairs encoding
+def encode(mol, dico):
+    dists = Chem.GetDistanceMatrix(mol)
+    type_atoms = []
+    for a in mol.GetAtoms():
+        # only consider heavy atoms
+        if a.GetAtomicNum() > 1:
+            t_a = (type_atom_simple(a), a)
+            type_atoms.append(t_a)
+    # sort by atom types (canonicalization of pairs)
+    type_atoms.sort(key=fst)
+    # count features
+    n = len(type_atoms)
+    feat2count = {}
+    for i in range(n - 1):
+        a_t, a = type_atoms[i]
+        a_i = a.GetIdx()
+        for j in range(i + 1, n):
+            b_t, b = type_atoms[j]
+            b_i = b.GetIdx()
+            dist = dists[a_i][b_i]
+            feat = (a_t, dist, b_t)
+            # python cannot create a dictionary w/ list keys!
+            feat = str(feat)
+            if dict_contains(feat2count, feat):
+                prev_count = feat2count[feat]
+                feat2count[feat] = prev_count + 1
+            else:
+                feat2count[feat] = 1
+    return feat2count
+
+d={}
+encode(m, d)
