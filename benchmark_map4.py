@@ -3,21 +3,22 @@
 
 # In[1]:
 
-
+import numpy as np
 import pandas as pd
+import seaborn as sns
+
+from joblib import Parallel, delayed
 from map4 import MAP4Calculator
 from atom_pairs import encode_molecules_folded, encode_molecules_unfolded
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import DataStructs
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from xgboost import XGBRegressor
-import numpy as np
 from sklearn.metrics import r2_score
 from tqdm.notebook import tqdm, tnrange
 from glob import glob
-import seaborn as sns
-
 
 # A simple function to create a Morgan fingerprint as a numpy array
 
@@ -62,28 +63,86 @@ def build_dataframe(input_file_name):
 
 
 # FBR: I lowered from 10xCV to 5xCV for faster bench
-def benchmark_dataset(df, name, cv_folds=5):
+def benchmark_dataset(df, name, mtry, cv_folds=5):
     map4_list = []
     morgan_list = []
     ap_list = []
     for i in tnrange(cv_folds, desc=name):
         train, test = train_test_split(df)
-        map4_xgb = XGBRegressor()
-        map4_xgb.fit(np.array([x for x in train.map4.values]), train.IC50)
-        map4_pred = map4_xgb.predict(np.array([x for x in test.map4.values]))
-        map4_r2 = r2_score(test.IC50, map4_pred)
+
+        y_train = train.IC50
+        y_test = test.IC50
+
+        nprocs = 1 # FBR: for my workstation
+
+        # # XGB -----------------------------------------------------------------
+        # # MAP4
+        # X_train = np.array([x for x in train.map4.values])
+        # X_test = np.array([x for x in test.map4.values])
+        # map4_xgb = XGBRegressor()
+        # map4_xgb.fit(X_train, y_train)
+        # map4_pred = map4_xgb.predict(X_test)
+        # map4_r2 = r2_score(y_test, map4_pred)
+        # map4_list.append(map4_r2)
+        # # ECFP
+        # X_train = np.array([x for x in train.morgan.values])
+        # X_test = np.array([x for x in test.morgan.values])
+        # morgan_xgb = XGBRegressor()
+        # morgan_xgb.fit(X_train, y_train)
+        # morgan_pred = morgan_xgb.predict(X_test)
+        # morgan_r2 = r2_score(y_test, morgan_pred)
+        # morgan_list.append(morgan_r2)
+        # # AP
+        # X_train = np.array([x for x in train.ap.values])
+        # X_test = np.array([x for x in test.ap.values])
+        # ap_xgb = XGBRegressor()
+        # ap_xgb.fit(X_train, y_train)
+        # ap_pred = ap_xgb.predict(X_test)
+        # ap_r2 = r2_score(y_test, ap_pred)
+        # ap_list.append(ap_r2)
+
+        # RFR -----------------------------------------------------------------
+        # MAP4
+        X_train = np.array([x for x in train.map4.values])
+        X_test = np.array([x for x in test.map4.values])
+        map4_rfr = RandomForestRegressor(n_estimators = 50,
+                                         criterion = 'squared_error',
+                                         n_jobs = nprocs,
+                                         oob_score = True,
+                                         min_samples_leaf = 1,
+                                         max_features = mtry,
+                                         max_samples = None) # sklearn default
+        map4_rfr.fit(X_train, y_train)
+        map4_pred = map4_rfr.predict(X_test)
+        map4_r2 = r2_score(y_test, map4_pred)
         map4_list.append(map4_r2)
-
-        morgan_xgb = XGBRegressor()
-        morgan_xgb.fit(np.array([x for x in train.morgan.values]), train.IC50)
-        morgan_pred = morgan_xgb.predict(np.array([x for x in test.morgan.values]))
-        morgan_r2 = r2_score(test.IC50, morgan_pred)
+        # ECFP
+        X_train = np.array([x for x in train.morgan.values])
+        X_test = np.array([x for x in test.morgan.values])
+        morgan_rfr = RandomForestRegressor(n_estimators = 50,
+                                           criterion = 'squared_error',
+                                           n_jobs = nprocs,
+                                           oob_score = True,
+                                           min_samples_leaf = 1,
+                                           max_features = mtry,
+                                           max_samples = None) # sklearn default
+        morgan_rfr.fit(X_train, y_train)
+        morgan_pred = morgan_rfr.predict(X_test)
+        morgan_r2 = r2_score(y_test, morgan_pred)
         morgan_list.append(morgan_r2)
-
-        ap_xgb = XGBRegressor()
-        ap_xgb.fit(np.array([x for x in train.ap.values]), train.IC50)
-        ap_pred = ap_xgb.predict(np.array([x for x in test.ap.values]))
-        ap_r2 = r2_score(test.IC50, ap_pred)
+        # AP
+        X_train = np.array([x for x in train.ap.values])
+        X_test = np.array([x for x in test.ap.values])
+        ap_rfr = RandomForestRegressor(n_estimators = 50,
+                                       criterion = 'squared_error',
+                                       n_jobs = nprocs,
+                                       oob_score = True,
+                                       min_samples_leaf = 1,
+                                       max_features = mtry,
+                                       max_samples = None) # sklearn default
+        ap_rfr.fit(X_train, y_train)
+        ap_pred = ap_rfr.predict(X_test)
+        ap_r2 = r2_score(y_test, ap_pred)
         ap_list.append(ap_r2)
 
     return (np.array(map4_list), np.array(morgan_list), np.array(ap_list))
@@ -94,126 +153,22 @@ def benchmark_dataset(df, name, cv_folds=5):
 # In[16]:
 
 
-def run_benchmarks(file_spec):
+def run_benchmarks(mtry):
     result_list = []
-    for filename in glob(file_spec):
+    for filename in glob('*.smi'):
         df = build_dataframe(filename)
         name = filename.replace(".smi", "")
-        map4_res, morgan_res, ap_res = benchmark_dataset(df, name)
+        map4_res, morgan_res, ap_res = benchmark_dataset(df, name, mtry)
         for map4, morgan, ap in zip(map4_res, morgan_res, ap_res):
             result_list.append([name, map4, morgan, ap])
-    return result_list
+    return (mtry, result_list)
 
 
 # Run the benchmark, on my MacBook Pro this took 21 minutes.
-
-# In[17]:
-
-
+mtrys = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
 # get_ipython().run_line_magic('time', 'result_list = run_benchmarks("*.smi")')
-result_list = run_benchmarks("*.smi")
-# A2a.smi
-# ABL1.smi
-# Acetylcholinesterase.smi
-# Aurora-A.smi
-# B-raf.smi
-# COX-1.smi
-# COX-2.smi
-# Cannabinoid.smi
-# Carbonic.smi
-# Caspase.smi
-# Coagulation.smi
-# Dihydrofolate.smi
-# Dopamine.smi
-# Ephrin.smi
-# Estrogen.smi
-# Glucocorticoid.smi
-# Glycogen.smi
-# HERG.smi
-# JAK2.smi
-# LCK.smi
-# Monoamine.smi
-# Vanilloid.smi
-# erbB1.smi
-# opioid.smi
-
+mtry_result_lists = Parallel(n_jobs=24)(delayed(run_benchmarks)(mtry) for mtry in mtrys)
 # Put the results into a dataframe and write the dataframe to disk.
-
-# In[18]:
-
-
-result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan", "ap"])
-result_df.to_csv("map4_morgan_comparison.csv", index=False)
-
-
-# In case we come back to this later, uncomment the line below and start from there.
-
-# In[19]:
-
-
-#result_df = pd.read_csv("map4_morgan_comparison.csv")
-
-
-# In[20]:
-
-
-result_df.head()
-
-
-# Convert the dataframe to a format appropriate for a boxplot. The melt function combines the map4 and morgan columns into one column.
-
-# In[21]:
-
-
-melt_df = result_df.melt(id_vars="dataset")
-melt_df.columns = ["dataset", "method", "r2"]
-melt_df.head()
-
-
-# Make a boxplot of the results.
-
-# In[22]:
-
-
-sns.set(rc={'figure.figsize': (15, 12)})
-sns.set(font_scale=1.5)
-ax = sns.boxplot(y="dataset", x="r2", hue="method", orient="h", data=melt_df, order=sorted(melt_df.dataset.unique()))
-ax.set(ylabel="Dataset", xlabel="$R^2$")
-_ = ax.legend(loc='upper right', bbox_to_anchor=(1.2, 1.0), ncol=1)
-
-
-# Calculate [Cohen's d](https://machinelearningmastery.com/effect-size-measures-in-python/) for the comparisons.
-
-# In[23]:
-
-
-cohen_list = []
-for k, v in result_df.groupby("dataset"):
-    delta = v.map4 - v.morgan
-    cohen_list.append([k, np.mean(delta)/np.std(delta)])
-cohen_df = pd.DataFrame(cohen_list, columns=["dataset", "cohen_d"])
-
-
-# Make a plot of the effect is for each of the datasets. Lines are drawn at
-# * Small Effect Size: d=0.20
-# * Medium Effect Size: d=0.50
-# * Large Effect Size: d=0.80
-
-# In[24]:
-
-
-ax = sns.barplot(y="dataset", x="cohen_d", data=cohen_df, orient="h")
-ax.set(ylabel="Dataset", xlabel="Cohen's d")
-_ = ax.set(xlim=[-5, 5])
-ax.vlines(0,0, cohen_df.shape[0], linestyles="solid")
-for i in [-0.8, -0.5, -0.2, 0.2, 0.5, 0.8]:
-    ax.vlines(i, 0, cohen_df.shape[0], linestyles="dotted")
-
-
-# In[25]:
-
-
-cohen_df.query("cohen_d < -0.8").shape
-
-
-# In[ ]:
+for mtry, result_list in mtry_result_lists:
+    result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan", "ap"])
+    result_df.to_csv("map4_morgan_comparison_%f.csv" % mtry, index=False)
