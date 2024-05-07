@@ -73,7 +73,7 @@ def benchmark_dataset(df, name, mtry, cv_folds=5):
         y_train = train.IC50
         y_test = test.IC50
 
-        nprocs = 1 # FBR: for my workstation
+        nprocs = 24 # FBR: for my workstation
 
         # # XGB -----------------------------------------------------------------
         # # MAP4
@@ -165,9 +165,10 @@ def run_benchmarks(mtry):
 
 
 # Run the benchmark, on my MacBook Pro this took 21 minutes.
-mtrys = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+# mtrys = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+mtrys = [0.1]
 # get_ipython().run_line_magic('time', 'result_list = run_benchmarks("*.smi")')
-mtry_result_lists = Parallel(n_jobs=24)(delayed(run_benchmarks)(mtry) for mtry in mtrys)
+mtry_result_lists = Parallel(n_jobs=1)(delayed(run_benchmarks)(mtry) for mtry in mtrys)
 # Put the results into a dataframe and write the dataframe to disk.
 for mtry, result_list in mtry_result_lists:
     result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan", "ap"])
