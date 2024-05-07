@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Copyright (C) 2024, Francois Berenger
+# Tsuda laboratory, The University of Tokyo,
+# 5-1-5 Kashiwa-no-ha, Kashiwa-shi, Chiba-ken, 277-8561, Japan.
+
 import numpy as np
 import random
 import rdkit
@@ -8,7 +12,7 @@ import typing
 from typing import Dict
 from rdkit import Chem
 
-# counted atom pairs; maybe folded using a counted-bloom filter
+# counted atom pairs; maybe folded using a counting Bloom filter
 
 def nb_heavy_atom_neighbors(a: rdkit.Chem.rdchem.Atom) -> int:
     res = 0
