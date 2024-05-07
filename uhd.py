@@ -4,6 +4,7 @@
 # Tsuda laboratory, The University of Tokyo,
 # 5-1-5 Kashiwa-no-ha, Kashiwa-shi, Chiba-ken, 277-8561, Japan.
 
+import numpy as np
 import rdkit
 import sys
 import typing
@@ -66,7 +67,7 @@ def encode(mol_noH, max_radius, dico):
                 if formula != '':
                     env.append(formula)
             feat = str(env)
-            print('DEBUG: env: %s' % feat, file=sys.stderr)
+            # print('DEBUG: env: %s' % feat, file=sys.stderr)
             # maintain global feature dictionary
             if not dict_contains(dico, feat):
                 # reserve index 0 for unknown features
@@ -98,7 +99,8 @@ def encode_molecules_unfolded(mols, max_dim=14087):
     d = {}
     res = []
     for mol in mols:
-        sparse = encode(mol, d)
+        # FBR: hard-coded atom env. radius
+        sparse = encode(mol, 3, d)
         unfolded = to_dense(sparse, max_dim)
         res.append(unfolded)
     print('atom_pairs: %d features' % len(d), file=sys.stderr)
