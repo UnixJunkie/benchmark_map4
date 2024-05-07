@@ -9,7 +9,8 @@ import seaborn as sns
 
 from joblib import Parallel, delayed
 from map4 import MAP4Calculator
-from atom_pairs import encode_molecules_folded, encode_molecules_unfolded
+from atom_pairs import encode_molecules_unfolded as ap_encode
+from uhd import encode_molecules_unfolded as uhd_encode
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import DataStructs
@@ -49,7 +50,8 @@ def build_dataframe(input_file_name):
     df['morgan'] = [fp_as_array(x) for x in df.mol]
     # FBR: folded AP might benefit from a significantly larger size: also try 4096, 8192 and 16384
     # for unfolded version: AP has 14086 features on erbB1; highest dimensional dataset
-    df['ap'] = encode_molecules_unfolded(df.mol)
+    df['ap'] = ap_encode(df.mol)
+    df['uhd'] = uhd_encode(df.mol)
     return df
 
 # Benchmark a dataset.
@@ -67,6 +69,7 @@ def benchmark_dataset(df, name, mtry, cv_folds=5):
     map4_list = []
     morgan_list = []
     ap_list = []
+    uhd_list = []
     for i in tnrange(cv_folds, desc=name):
         train, test = train_test_split(df)
 
@@ -144,8 +147,22 @@ def benchmark_dataset(df, name, mtry, cv_folds=5):
         ap_pred = ap_rfr.predict(X_test)
         ap_r2 = r2_score(y_test, ap_pred)
         ap_list.append(ap_r2)
+        # UHD
+        X_train = np.array([x for x in train.uhd.values])
+        X_test = np.array([x for x in test.uhd.values])
+        uhd_rfr = RandomForestRegressor(n_estimators = 50,
+                                       criterion = 'squared_error',
+                                       n_jobs = nprocs,
+                                       oob_score = True,
+                                       min_samples_leaf = 1,
+                                       max_features = mtry,
+                                       max_samples = None) # sklearn default
+        uhd_rfr.fit(X_train, y_train)
+        uhd_pred = uhd_rfr.predict(X_test)
+        uhd_r2 = r2_score(y_test, uhd_pred)
+        uhd_list.append(uhd_r2)
 
-    return (np.array(map4_list), np.array(morgan_list), np.array(ap_list))
+    return (np.array(map4_list), np.array(morgan_list), np.array(ap_list), np.array(uhd_list))
 
 
 # Run the bechmark on a set of files.
@@ -158,9 +175,9 @@ def run_benchmarks(mtry):
     for filename in glob('*.smi'):
         df = build_dataframe(filename)
         name = filename.replace(".smi", "")
-        map4_res, morgan_res, ap_res = benchmark_dataset(df, name, mtry)
-        for map4, morgan, ap in zip(map4_res, morgan_res, ap_res):
-            result_list.append([name, map4, morgan, ap])
+        map4_res, morgan_res, ap_res, uhd_res = benchmark_dataset(df, name, mtry)
+        for map4, morgan, ap, uhd in zip(map4_res, morgan_res, ap_res, uhd_res):
+            result_list.append([name, map4, morgan, ap, uhd])
     return (mtry, result_list)
 
 
@@ -171,5 +188,5 @@ mtrys = [0.1]
 mtry_result_lists = Parallel(n_jobs=1)(delayed(run_benchmarks)(mtry) for mtry in mtrys)
 # Put the results into a dataframe and write the dataframe to disk.
 for mtry, result_list in mtry_result_lists:
-    result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan", "ap"])
+    result_df = pd.DataFrame(result_list, columns=["dataset", "map4", "morgan", "ap", "uhd"])
     result_df.to_csv("map4_morgan_comparison_%f.csv" % mtry, index=False)
