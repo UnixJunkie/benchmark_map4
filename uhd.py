@@ -19,7 +19,7 @@ def get_elements(mol) -> list[str]:
 
 def formula_at_radius(elements, center_i, dists, radius) -> str:
     symbols = set()
-    elt2count = {}
+    elt2count: Dict[str,int] = {}
     distances = dists[center_i]
     assert(elements[center_i] != "H") # not supposed to encode H
     for j, dist in enumerate(distances):
