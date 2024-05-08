@@ -1,0 +1,23 @@
+
+ - 5xCV split each dataset for each protein target
+   - at the SMILES level
+   - encode using each investigated FP ?
+     - MAP4
+     - ECFP4
+     - ECFP6
+     - UCAP
+     - UHD1
+     - UHD2
+     - UHD3
+     - UHD+inf
+
+ - do a CLI wrapper for each model; expose critical hyper params
+   - XGB ?
+   - RFR
+
+ - run linwrap on each fold of each protein target
+   - on each investigated FP
+
+ - compute R2 stats (mean+/-stddev) for each model on each target
+
+ - try a model that can cope w/ HD data (LASSO?)
