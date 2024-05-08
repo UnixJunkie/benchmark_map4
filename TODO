@@ -14,10 +14,9 @@
  - do a CLI wrapper for each model; expose critical hyper params
    - XGB ?
    - RFR
-
- - run linwrap on each fold of each protein target
-   - on each investigated FP
+   - linwrap
 
  - compute R2 stats (mean+/-stddev) for each model on each target
+   - RMSE is also interesting
 
- - try a model that can cope w/ HD data (LASSO?)
+ - try a model that can cope w/ HD data (LASSO?) for UHD FPs
